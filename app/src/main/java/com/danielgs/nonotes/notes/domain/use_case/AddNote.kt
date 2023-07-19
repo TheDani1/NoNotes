@@ -3,7 +3,6 @@ package com.danielgs.nonotes.notes.domain.use_case
 import com.danielgs.nonotes.notes.domain.model.InvalidNoteException
 import com.danielgs.nonotes.notes.domain.model.Note
 import com.danielgs.nonotes.notes.domain.repository.NoteRepository
-import kotlin.jvm.Throws
 
 class AddNote(
     private val repository: NoteRepository

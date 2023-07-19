@@ -7,6 +7,7 @@ import com.example.compose.md_theme_dark_primary
 import com.example.compose.md_theme_dark_secondary
 import com.example.compose.md_theme_dark_tertiary
 import com.example.compose.md_theme_light_onTertiary
+import com.google.firebase.database.Exclude
 
 @Entity
 data class Note(
@@ -20,6 +21,7 @@ data class Note(
     companion object{
         val noteColors = listOf(md_theme_dark_tertiary, md_theme_dark_secondary, md_theme_light_onTertiary, md_theme_dark_primary)
     }
+
 }
 
 class InvalidNoteException(message: String) : Exception(message)
