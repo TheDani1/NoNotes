@@ -13,8 +13,8 @@ import com.danielgs.nonotes.notes.domain.model.InvalidNoteException
 import com.danielgs.nonotes.notes.domain.model.Note
 import com.danielgs.nonotes.notes.domain.model.NoteDatabaseData
 import com.danielgs.nonotes.notes.domain.use_case.NoteUseCases
-import com.danielgs.nonotes.notes.presentation.notes.USER_NAME_KEY
-import com.danielgs.nonotes.notes.presentation.notes.dataStore
+import com.danielgs.nonotes.notes.presentation.APP_UID
+import com.danielgs.nonotes.notes.presentation.dataStore
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.ktx.Firebase
@@ -22,6 +22,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -51,7 +52,7 @@ class AddEditNoteViewModel @Inject constructor(
     suspend fun storeUserName(name: String, context: Context) {
         context.dataStore.edit {
                 preferences ->
-            preferences[USER_NAME_KEY] = name
+            preferences[APP_UID] = name
         }
     }
 
@@ -63,16 +64,14 @@ class AddEditNoteViewModel @Inject constructor(
 
                     val user = Firebase.auth.currentUser
                     val db = FirebaseDatabase.getInstance()
-                    var ref = db.getReference("notes/${user?.uid}/${noteId}")
+                    var ref = db.getReference("notes")
 
                     savedStateHandle.get<String>("userId")?.let { userId ->
                         // Aquí puedes utilizar el valor de userId
-                        Log.d("MyViewModel", "userId: $userId")
-
                         ref = db.getReference("notes/${userId}/${noteId}")
                     }
 
-                    val deferred = viewModelScope.launch {
+                    viewModelScope.launch {
 
                         try {
                             val dataSnapshot =
@@ -112,7 +111,6 @@ class AddEditNoteViewModel @Inject constructor(
                                 )
                             }!!
                             _noteColor.value = note.color!!
-
 
                         } catch (e: Exception) {
                             // Manejo de errores
@@ -205,36 +203,70 @@ class AddEditNoteViewModel @Inject constructor(
                         )
 
                         val db = FirebaseDatabase.getInstance()
+                        val user = Firebase.auth.currentUser
+
+                        var refSelfNotes = db.getReference("notes")
 
                         val userNameFlow: Flow<String> = event.context.dataStore.data.map { preferences ->
-                            preferences[USER_NAME_KEY] ?: ""
+                            preferences[APP_UID] ?: ""
                         }
 
-                        userNameFlow.collect { userName ->
+                        if(user == null){
+                            Log.d("INCIADO", "El user es null por lo que lo guardo en la UUID de la app")
 
-                            val refSelfNotes = db.getReference("notes/${userName}")
+                            userNameFlow.collect { userName ->
 
-                            if(currentNoteId == null){
+                                refSelfNotes = db.getReference("notes/${userName}")
 
-                                val newData = refSelfNotes.push()
-                                newData.setValue(noteda)
+                                if(currentNoteId == null){
 
-                            }else{
+                                    val newData = refSelfNotes.push()
+                                    newData.setValue(noteda)
 
-                                val notesValues = noteda.toMap()
+                                }else{
 
-                                val childUpdates = hashMapOf<String, Any>(
-                                    "$currentNoteId" to notesValues,
-                                )
+                                    val notesValues = noteda.toMap()
 
-                                refSelfNotes.updateChildren(childUpdates)
+                                    val childUpdates = hashMapOf<String, Any>(
+                                        "$currentNoteId" to notesValues,
+                                    )
+
+                                    refSelfNotes.updateChildren(childUpdates)
+
+                                }
+
+                                _eventFlow.emit(UiEvent.SaveNote)
 
                             }
-                            _eventFlow.emit(UiEvent.SaveNote)
+
+                            Log.d("INCIADO", "El user es null por lo que lo guardo en la UUID de la app")
+
+                        }else{
+
+                            refSelfNotes = db.getReference("notes/${user.uid}")
+                        }
+
+                        if(currentNoteId == null){
+
+                            val newData = refSelfNotes.push()
+                            newData.setValue(noteda)
+
+                        }else{
+
+                            val notesValues = noteda.toMap()
+
+                            val childUpdates = hashMapOf<String, Any>(
+                                "$currentNoteId" to notesValues,
+                            )
+
+                            refSelfNotes.updateChildren(childUpdates)
 
                         }
 
+                        _eventFlow.emit(UiEvent.SaveNote)
+
                     } catch (e: InvalidNoteException) {
+                        Log.d("INCIADO", "No se ha podido guardar la nota")
                         _eventFlow.emit(
                             UiEvent.showSnackbar(
                                 message = e.message ?: "Couldn't save note"

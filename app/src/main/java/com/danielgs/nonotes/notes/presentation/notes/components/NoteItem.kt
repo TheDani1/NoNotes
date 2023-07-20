@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkAdded
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -34,6 +35,7 @@ fun NoteItem(
     note: NoteDatabaseData,
     modifier: Modifier = Modifier,
     onDeleteClick: () -> Unit,
+    onIntentClick: () -> Unit
 ) {
 
     Column() {
@@ -55,7 +57,7 @@ fun NoteItem(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(16.dp)
-                            .padding(end = 32.dp)
+                            .padding(end = 32.dp, bottom = 20.dp)
                     ) {
                         note.content?.let { it1 ->
                             Text(
@@ -71,6 +73,15 @@ fun NoteItem(
                     Row(
                         modifier = Modifier.align(Alignment.BottomEnd)
                     ){
+                        IconButton(
+                            onClick = onIntentClick,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Delete note"
+                            )
+
+                        }
                         IconButton(
                             onClick = onDeleteClick,
                         ) {

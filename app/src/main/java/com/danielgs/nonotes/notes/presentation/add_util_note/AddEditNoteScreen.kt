@@ -69,7 +69,6 @@ import kotlinx.coroutines.launch
 fun AddEditNoteScreen(
     navController: NavController,
     noteColor: Int,
-    userId: String,
     viewModel: AddEditNoteViewModel = hiltViewModel()
 ) {
 

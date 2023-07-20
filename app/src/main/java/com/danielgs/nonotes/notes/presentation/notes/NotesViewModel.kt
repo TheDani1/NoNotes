@@ -12,14 +12,14 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.danielgs.nonotes.notes.domain.model.Note
 import com.danielgs.nonotes.notes.domain.model.NoteDatabaseData
 import com.danielgs.nonotes.notes.domain.use_case.NoteUseCases
 import com.danielgs.nonotes.notes.domain.util.NoteOrder
+import com.danielgs.nonotes.notes.presentation.APP_UID
+import com.danielgs.nonotes.notes.presentation.dataStore
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -37,11 +37,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.util.UUID
 import javax.inject.Inject
-
-val Context.dataStore by preferencesDataStore("user_preferences")
-val USER_NAME_KEY = stringPreferencesKey("USER_NAME")
 
 @Composable
 fun rememberFirebaseAuthLauncher(
@@ -69,9 +65,8 @@ class NotesViewModel @Inject constructor(
 ) : ViewModel() {
 
     suspend fun storeUserName(name: String, context: Context) {
-        context.dataStore.edit {
-                preferences ->
-            preferences[USER_NAME_KEY] = name
+        context.dataStore.edit { preferences ->
+            preferences[APP_UID] = name
         }
         Log.d("INCIADO", "Guardado username: " + name)
     }
@@ -79,11 +74,14 @@ class NotesViewModel @Inject constructor(
     val db = FirebaseDatabase.getInstance()
     val ref = db.getReference("notes")
 
-    val _user = mutableStateOf(Firebase.auth.currentUser)
+    private val _user = mutableStateOf(Firebase.auth.currentUser)
     val user = _user
 
-    val _loading = mutableStateOf(true)
+    private val _loading = mutableStateOf(true)
     val loading = _loading
+
+    val _loadAgain = mutableStateOf(true)
+    val loadAgain = _loadAgain
 
     private val _state = mutableStateOf(NotesState())
     val state: State<NotesState> = _state
@@ -101,15 +99,72 @@ class NotesViewModel @Inject constructor(
         launcher: ManagedActivityResultLauncher<Intent, ActivityResult>,
         token: String
     ) {
-        if (user.value == null) {
+
+        loading.value = true
+        Log.d("DEBUGNAME", "Loading true3")
+
+        val firebaseUser = Firebase.auth.currentUser
+
+        if (firebaseUser == null) {
             val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken(token).requestEmail().requestProfile().build()
             val googleSignInClient = GoogleSignIn.getClient(context, gso)
             launcher.launch(googleSignInClient.signInIntent)
 
         } else {
-            Firebase.auth.signOut()
-            user.value = null
+
+            val userNameFlow: Flow<String> = context.dataStore.data.map { preferences ->
+                preferences[APP_UID] ?: ""
+            }
+
+            val db = FirebaseDatabase.getInstance()
+
+            viewModelScope.launch {
+                userNameFlow.collect { userName ->
+
+                    val refNube = db.getReference("notes/${firebaseUser.uid}")
+                    val refLocal = db.getReference("notes/${userName}")
+
+                    val dataSnapshot = refNube.get().await()
+
+                    val notesList = mutableListOf<NoteDatabaseData>()
+
+                    dataSnapshot.children.forEach { innerSnapshot ->
+
+                        val title = innerSnapshot.child("title").getValue(String::class.java)
+                        val content = innerSnapshot.child("content").getValue(String::class.java)
+                        val favourite =
+                            innerSnapshot.child("favourite").getValue(Boolean::class.java)
+                        val timestamp = innerSnapshot.child("timestamp").getValue(Long::class.java)
+                        val color = innerSnapshot.child("color").getValue(Int::class.java)
+                        val id = innerSnapshot.key
+
+                        val note = NoteDatabaseData(
+                            title ?: "",
+                            content ?: "",
+                            favourite ?: false,
+                            timestamp ?: 0L,
+                            color ?: 0,
+                            id ?: "",
+                        )
+                        notesList.add(note)
+                    }
+
+                    val childUpdates = hashMapOf<String, Any>()
+
+                    notesList.forEach { note ->
+                        note.id?.let { childUpdates.put(it, note) }
+                    }
+
+                    refLocal.updateChildren(childUpdates)
+
+                    loadAgain.value = !loadAgain.value
+                    loading.value = false
+                    Firebase.auth.signOut()
+                    user.value = null
+                    Log.d("DEBUGNAME", "Loading false3")
+                }
+            }
         }
     }
 
@@ -156,97 +211,132 @@ class NotesViewModel @Inject constructor(
 
     }
 
-    fun getNotes(noteOrder: NoteOrder, context: Context) {/*getNotesJob?.cancel()
+    fun getNotes(noteOrder: NoteOrder, context: Context) {
 
-        getNotesJob = noteUseCases.getNotes(noteOrder)
-            .onEach { notes ->
-                _state.value = state.value.copy(
-                    notes = notes,
-                    noteOrder = noteOrder
-                )
+        try {
+            val userNameFlow: Flow<String> = context.dataStore.data.map { preferences ->
+                preferences[APP_UID] ?: ""
             }
-            .launchIn(viewModelScope)*/
 
-        val userNameFlow: Flow<String> = context.dataStore.data.map { preferences ->
-            preferences[USER_NAME_KEY] ?: ""
-        }
+            var refSelfNotes = ref
 
-        var refSelfNotes = ref
+            val deferred = viewModelScope.async {
 
-        val deferred = viewModelScope.async {
+                if (Firebase.auth.currentUser == null) {
 
-            userNameFlow.collect { userName ->
+                    userNameFlow.collect { userName ->
 
-                Log.d("DEBUGNAME", "Obtengo del Flow de obtener notas el userUID: " + userName )
+                        refSelfNotes = db.getReference("notes/${userName}")
+                        refSelfNotes.keepSynced(true)
+                        Log.d("INCIADO", "Carga el UID de App" + "notes/${userName}")
 
-                if(userName == ""){
+                        try {
+                            val dataSnapshot =
+                                refSelfNotes.get().await()
 
-                    val appRandomUUID = UUID.randomUUID().toString()
+                            Log.d("DEBUGNAME", "CARGA ESTA REF" + refSelfNotes.toString())
 
-                    context.dataStore.edit {
-                            preferences ->
-                        preferences[USER_NAME_KEY] = appRandomUUID
+                            val notesList = mutableListOf<NoteDatabaseData>()
+
+                            dataSnapshot.children.forEach { innerSnapshot ->
+
+                                val title =
+                                    innerSnapshot.child("title").getValue(String::class.java)
+                                val content =
+                                    innerSnapshot.child("content").getValue(String::class.java)
+                                val favourite =
+                                    innerSnapshot.child("favourite").getValue(Boolean::class.java)
+                                val timestamp =
+                                    innerSnapshot.child("timestamp").getValue(Long::class.java)
+                                val color = innerSnapshot.child("color").getValue(Int::class.java)
+                                val id = innerSnapshot.key
+
+                                val note = NoteDatabaseData(
+                                    title ?: "",
+                                    content ?: "",
+                                    favourite ?: false,
+                                    timestamp ?: 0L,
+                                    color ?: 0,
+                                    id ?: "",
+                                )
+                                notesList.add(note)
+                                loading.value = false
+                            }
+                            _state.value = state.value.copy(
+                                notes = notesList, noteOrder = noteOrder
+                            )
+
+                        } catch (e: Exception) {
+                            // Manejo de errores
+                        }finally {
+                            loading.value = false
+                        }
+
                     }
 
-                    refSelfNotes = db.getReference("notes/${appRandomUUID}")
-                    Log.d("INCIADO", "Carga el UID de App")
-
-                }else{
-                    refSelfNotes = db.getReference("notes/${userName}")
+                } else {
+                    refSelfNotes = db.getReference("notes/${Firebase.auth.currentUser!!.uid}")
+                    refSelfNotes.keepSynced(true)
                     Log.d("INCIADO", "Carga el UID de Google")
                 }
 
-                try {
-                    val dataSnapshot =
-                        refSelfNotes.get().await()
+                val dataSnapshot =
+                    refSelfNotes.get().await()
 
-                    Log.d("DEBUGNAME", "CARGA ESTA REF" + refSelfNotes.toString())
+                Log.d("DEBUGNAME", "CARGA ESTA REF" + refSelfNotes.toString())
 
-                    val notesList = mutableListOf<NoteDatabaseData>()
+                val notesList = mutableListOf<NoteDatabaseData>()
 
-                    dataSnapshot.children.forEach { innerSnapshot ->
+                dataSnapshot.children.forEach { innerSnapshot ->
 
-                        val title = innerSnapshot.child("title").getValue(String::class.java)
-                        val content = innerSnapshot.child("content").getValue(String::class.java)
-                        val favourite =
-                            innerSnapshot.child("favourite").getValue(Boolean::class.java)
-                        val timestamp = innerSnapshot.child("timestamp").getValue(Long::class.java)
-                        val color = innerSnapshot.child("color").getValue(Int::class.java)
-                        val id = innerSnapshot.key
+                    val title = innerSnapshot.child("title").getValue(String::class.java)
+                    val content = innerSnapshot.child("content").getValue(String::class.java)
+                    val favourite =
+                        innerSnapshot.child("favourite").getValue(Boolean::class.java)
+                    val timestamp = innerSnapshot.child("timestamp").getValue(Long::class.java)
+                    val color = innerSnapshot.child("color").getValue(Int::class.java)
+                    val id = innerSnapshot.key
 
-                        val note = NoteDatabaseData(
-                            title ?: "",
-                            content ?: "",
-                            favourite ?: false,
-                            timestamp ?: 0L,
-                            color ?: 0,
-                            id ?: "",
-                        )
-                        notesList.add(note)
-                    }
-                    _state.value = state.value.copy(
-                        notes = notesList, noteOrder = noteOrder
+                    val note = NoteDatabaseData(
+                        title ?: "",
+                        content ?: "",
+                        favourite ?: false,
+                        timestamp ?: 0L,
+                        color ?: 0,
+                        id ?: "",
                     )
-
-                } catch (e: Exception) {
-                    // Manejo de errores
+                    notesList.add(note)
                 }
+                _state.value = state.value.copy(
+                    notes = notesList, noteOrder = noteOrder
+                )
+                Log.d("DEBUGNAME", "Acaba getNotes de Google")
+                //loading.value= false
             }
-        }
 
-        viewModelScope.launch(Dispatchers.Main) {
-            delay(100)
-            if (deferred.isActive) {
-                loading.value = true
-                try {
+            /*viewModelScope.launch(Dispatchers.Main) {
+                Log.d("DEBUGNAME", "Se lanza deferred")
+                delay(1000)
+                if (deferred.isActive) {
+                    loading.value = true
+                    Log.d("DEBUGNAME", "Loading true4")
+                    try {
+                        val result = deferred.await()
+                    } finally {
+                        loading.value = false
+                        Log.d("DEBUGNAME", "Loading false5")
+                    }
+                } else {
+                    Log.d("DEBUGNAME", "ESPERA")
                     val result = deferred.await()
-                } finally {
-                    loading.value = false
-                }
-            } else {
-                val result = deferred.await()
 
-            }
+                }
+            }*/
+
+        } catch (e: Exception) {
+            // Manejo de errores
+        } finally {
+            loading.value = false
         }
 
     }

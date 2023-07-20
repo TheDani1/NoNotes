@@ -1,5 +1,6 @@
 package com.danielgs.nonotes.notes.presentation.notes
 
+import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -41,20 +42,28 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat.startActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.danielgs.nonotes.R
+import com.danielgs.nonotes.notes.domain.model.NoteDatabaseData
 import com.danielgs.nonotes.notes.domain.util.NoteOrder
 import com.danielgs.nonotes.notes.domain.util.OrderType
+import com.danielgs.nonotes.notes.presentation.APP_UID
+import com.danielgs.nonotes.notes.presentation.dataStore
 import com.danielgs.nonotes.notes.presentation.notes.components.NoteItem
-import com.danielgs.nonotes.notes.presentation.notes.components.OrderSection
 import com.danielgs.nonotes.notes.presentation.util.Screen
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -65,10 +74,10 @@ fun NotesScreen(
 
     val scope = rememberCoroutineScope()
 
-
     val context = LocalContext.current
 
     LaunchedEffect(key1 = true) {
+        Log.d("DEBUGNAME","Se ejecuta getNotes")
         viewModel.getNotes(NoteOrder.Date(OrderType.Descending), context)
     }
 
@@ -78,24 +87,72 @@ fun NotesScreen(
 
     val launcher = rememberFirebaseAuthLauncher(
         onAuthComplete = { result ->
-            viewModel.user.value = result.user
 
-            //viewModel.user.value?.uid?.let { viewModel.ref.child(it) }?.setValue(state.notes)
-            // refSelfNotes.updateChildren(childUpdates)
+            viewModel.loading.value = true
+            Log.d("DEBUGNAME", "Loading true1")
+
+            val userNameFlow: Flow<String> = context.dataStore.data.map { preferences ->
+                preferences[APP_UID] ?: ""
+            }
+
+            val db = FirebaseDatabase.getInstance()
 
             scope.launch {
-                result.user?.let { viewModel.storeUserName(it.uid, context) }
+                userNameFlow.collect { userName ->
+
+                    val refNube = db.getReference("notes/${result.user?.uid}")
+                    val refLocal = db.getReference("notes/${userName}")
+
+                    val dataSnapshot = refLocal.get().await()
+
+                    val notesList = mutableListOf<NoteDatabaseData>()
+
+                    dataSnapshot.children.forEach { innerSnapshot ->
+
+                        val title = innerSnapshot.child("title").getValue(String::class.java)
+                        val content = innerSnapshot.child("content").getValue(String::class.java)
+                        val favourite =
+                            innerSnapshot.child("favourite").getValue(Boolean::class.java)
+                        val timestamp = innerSnapshot.child("timestamp").getValue(Long::class.java)
+                        val color = innerSnapshot.child("color").getValue(Int::class.java)
+                        val id = innerSnapshot.key
+
+                        val note = NoteDatabaseData(
+                            title ?: "",
+                            content ?: "",
+                            favourite ?: false,
+                            timestamp ?: 0L,
+                            color ?: 0,
+                            id ?: "",
+                        )
+                        notesList.add(note)
+                    }
+
+                    val childUpdates = hashMapOf<String, Any>()
+
+                    notesList.forEach {
+                        note ->
+                        note.id?.let { childUpdates.put(it, note) }
+                    }
+
+                    refNube.updateChildren(childUpdates)
+                    refLocal.removeValue()
+                    viewModel.loadAgain.value = !viewModel.loadAgain.value
+                    viewModel.loading.value = false
+                    Log.d("DEBUGNAME", "Loading false1")
+                    viewModel.user.value = result.user
+                }
             }
+
+
         },
         onAuthError = {
             viewModel.user.value = null
         }
     )
 
-
     val systemUiController = rememberSystemUiController()
     val useDarkIcons = !isSystemInDarkTheme()
-
 
     val snackbarHostState = SnackbarHostState()
 
@@ -181,36 +238,26 @@ fun NotesScreen(
 
                 IconButton(onClick = {
 
-                    /*val noteref = ref.child("users")
-
-                    val notes: MutableMap<String, Note> = HashMap()
-
-                    notes.put(
-                        "alanisawesome", Note(
-                            "Ejemplo",
-                            "Hola nota",
-                            false,
-                            System.currentTimeMillis(),
-                            md_theme_dark_tertiary.toArgb()
-                        )
-                    )
-
-                    ref.setValue(notes)*/
+                    viewModel.loading.value = true
+                    Log.d("DEBUGNAME", "Loading true2")
+                    viewModel.getNotes(NoteOrder.Date(OrderType.Descending), context)
+                    viewModel.loading.value = false
+                    Log.d("DEBUGNAME", "Loading false2")
 
                 }) {
-                    Icon(Icons.Default.CloudSync, "Hola")
+                    Icon(Icons.Default.CloudSync, "Resync")
                 }
 
-                OrderSection(
+                /*OrderSection(
                     onOrderChange = { viewModel.onEvent(NotesEvent.Order(it)) },
                     modifier = Modifier
                         .fillMaxWidth(),
                     noteOrder = state.noteOrder
-                )
+                )*/
             }
 
 
-            if(false){
+            if(viewModel.loading.value){
                 
                 Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     CircularProgressIndicator(modifier = Modifier.size(100.dp))
@@ -232,24 +279,28 @@ fun NotesScreen(
                                 .fillMaxWidth()
                                 .clickable {
 
-                                    val userNameFlow: Flow<String> = context.dataStore.data.map { preferences ->
-                                        preferences[USER_NAME_KEY] ?: ""
-                                    }
+                                    val userNameFlow: Flow<String> =
+                                        context.dataStore.data.map { preferences ->
+                                            preferences[APP_UID] ?: ""
+                                        }
 
                                     scope.launch {
-                                        userNameFlow.collect { userName ->
 
+                                        val user = Firebase.auth.currentUser
+
+                                        if (user != null) {
                                             navController.navigate(
-                                                Screen.AddEditNoteScreen.route + "?noteId=${note.id}&noteColor=${note.color}&userId=${userName}"
+                                                Screen.AddEditNoteScreen.route + "?noteId=${note.id}&noteColor=${note.color}&userId=${user.uid}"
                                             )
+                                        } else {
 
+                                            userNameFlow.collect { userName ->
+                                                navController.navigate(
+                                                    Screen.AddEditNoteScreen.route + "?noteId=${note.id}&noteColor=${note.color}&userId=${userName}"
+                                                )
+                                            }
                                         }
                                     }
-
-
-
-
-                                    Log.d("INCIADO", Screen.AddEditNoteScreen.route + "?noteId=${note.id}&noteColor=${note.color}")
                                 },
                             onDeleteClick = {
                                 /*viewModel.onEvent(/*NotesEvent.DeleteNote(note)*/)*/
@@ -264,6 +315,17 @@ fun NotesScreen(
                                     }
                                 }
                             },
+                            onIntentClick = {
+
+                                val sendIntent: Intent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(Intent.EXTRA_TEXT, "*${note.title}*\n${note.content}")
+                                    type = "text/plain"
+                                }
+
+                                startActivity(context, sendIntent, null)
+
+                            }
                         )
                     }
                 }
