@@ -3,6 +3,7 @@ package com.danielgs.nonotes.notes.presentation.notes
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
@@ -29,10 +30,8 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -192,8 +191,43 @@ class NotesViewModel @Inject constructor(
             is NotesEvent.DeleteNote -> {
 
                 viewModelScope.launch {
-                    noteUseCases.deleteNote(event.note)
-                    recentlyDeletedNote = event.note
+
+                    val ref = db.getReference("notes")
+
+                    var refSelfNotes = ref
+
+                    val userNameFlow: Flow<String> =
+                        event.context.dataStore.data.map { preferences ->
+                            preferences[APP_UID] ?: ""
+                        }
+
+                    val db = FirebaseDatabase.getInstance()
+
+                    if (Firebase.auth.currentUser == null) {
+
+                        userNameFlow.collect { userName ->
+
+                            refSelfNotes = db.getReference("notes/${userName}/${event.note.id}")
+
+                            refSelfNotes.removeValue()
+
+                        }
+
+                    } else {
+
+                        refSelfNotes = db.getReference("notes/${Firebase.auth.currentUser!!.uid}/${event.note.id}")
+                        refSelfNotes.removeValue()
+
+                    }
+
+                    Toast.makeText(
+                        event.context,
+                        "Nota eliminada",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                   loadAgain.value = !loadAgain.value
+
                 }
 
             }
@@ -268,7 +302,7 @@ class NotesViewModel @Inject constructor(
 
                         } catch (e: Exception) {
                             // Manejo de errores
-                        }finally {
+                        } finally {
                             loading.value = false
                         }
 

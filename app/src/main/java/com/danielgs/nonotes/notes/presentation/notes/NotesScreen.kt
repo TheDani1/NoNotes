@@ -27,10 +27,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -76,7 +74,7 @@ fun NotesScreen(
 
     val context = LocalContext.current
 
-    LaunchedEffect(key1 = true) {
+    LaunchedEffect(key1 = true, key2 = viewModel.loadAgain.value) {
         Log.d("DEBUGNAME","Se ejecuta getNotes")
         viewModel.getNotes(NoteOrder.Date(OrderType.Descending), context)
     }
@@ -303,17 +301,7 @@ fun NotesScreen(
                                     }
                                 },
                             onDeleteClick = {
-                                /*viewModel.onEvent(/*NotesEvent.DeleteNote(note)*/)*/
-                                scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "Note deleted",
-                                        actionLabel = "Undo",
-                                        duration = SnackbarDuration.Indefinite
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        viewModel.onEvent(NotesEvent.RestoreNote)
-                                    }
-                                }
+                                viewModel.onEvent(NotesEvent.DeleteNote(note, context))
                             },
                             onIntentClick = {
 
