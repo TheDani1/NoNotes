@@ -13,6 +13,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 
+/**
+ * Esta función [Composable] renderiza un [BasicTextField] con los parámetros de entrada.
+ *
+ * @property text Texto del [BasicTextField]
+ * @property hint La pista del [BasicTextField]
+ * @property modifier El modificador del [BasicTextField]
+ * @property isHintVisible Visibilidad de la pista
+ * @property onValueChange Función que se ejecuta cada vez que cambia su valor
+ * @property textStyle El estilo del texto
+ * @property singleLine Si se quiere que se muestre una sola línea
+ * @property onFocusChange Si cambia el focus
+ * @property readOnly Solo lectura
+ *
+ */
 @Composable
 fun TransparentHintTextField(
     text : String,

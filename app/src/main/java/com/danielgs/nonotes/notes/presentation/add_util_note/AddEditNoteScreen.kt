@@ -64,6 +64,16 @@ import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+/**
+ * Función [Composable] que renderiza la pantalla principal desde donde se editan y añaden
+ * todas y cada una de las notas.
+ *
+ * @param navController Controlador de navegación
+ * @param noteColor Color de la nota a editar o añadir
+ * @param viewModel viewModel de la pantalla (inyectada por hilt)
+ *
+ *
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditNoteScreen(

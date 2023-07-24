@@ -38,6 +38,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
+/**
+ * Función para lanzar el autenticador de Firebase
+ *
+ * @param onAuthComplete Si se completa la autenticación
+ * @param onAuthError Si se produce un error en la autenticación
+ *
+ *
+ */
 @Composable
 fun rememberFirebaseAuthLauncher(
     onAuthComplete: (AuthResult) -> Unit, onAuthError: (ApiException) -> Unit
@@ -58,6 +66,13 @@ fun rememberFirebaseAuthLauncher(
     }
 }
 
+/**
+ * Clase viewmodel de la pantalla de las notas.
+ *
+ * @property noteUseCases Usos de caso
+ *
+ *
+ */
 @HiltViewModel
 class NotesViewModel @Inject constructor(
     private val noteUseCases: NoteUseCases

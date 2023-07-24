@@ -5,6 +5,7 @@ plugins {
     id 'com.google.dagger.hilt.android'
     id 'dagger.hilt.android.plugin'
     id 'com.google.gms.google-services'
+    id 'org.jetbrains.dokka'
 }
 
 android {
@@ -22,6 +23,10 @@ android {
         vectorDrawables {
             useSupportLibrary true
         }
+    }
+
+    tasks.dokkaHtml.configure {
+        moduleName.set("NoNotes")
     }
 
     buildTypes {
@@ -123,4 +128,7 @@ dependencies {
     // AUTH
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation 'com.google.android.gms:play-services-auth:20.6.0'
+
+    // DOKKA DOCUMENTATION
+    dokkaPlugin 'org.jetbrains.dokka:android-documentation-plugin:1.8.20'
 }

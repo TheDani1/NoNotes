@@ -30,6 +30,15 @@ import com.danielgs.nonotes.notes.domain.model.NoteDatabaseData
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+/**
+ * Función [Composable] que se encarga de renderizar cada uno de las [Card] que contiene cada [Note]
+ *
+ * @param note Nota guardada y mostrada
+ * @param modifier Modificador de la función composable
+ * @param onDeleteClick Función ejecutada al borrar
+ * @param onIntentClick Función ejecutada al hacer el Intent
+ *
+ */
 @Composable
 fun NoteItem(
     note: NoteDatabaseData,

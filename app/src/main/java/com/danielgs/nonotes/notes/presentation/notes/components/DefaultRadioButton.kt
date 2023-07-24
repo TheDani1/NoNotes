@@ -12,6 +12,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+/**
+ * Función [Composable] que se encarga de renderizar los radio button para ordenar
+ *
+ * @param text Texto de los botones radio
+ * @param selected Si es seleccionado
+ * @param onSelect Al ser seleccionado
+ * @param modifier Modificadores de la función [Composable]
+ *
+ */
 @Composable
 fun DefaultRadioButton(
     text: String,

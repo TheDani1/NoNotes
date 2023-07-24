@@ -16,10 +16,19 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+/**
+ * Encargado de la inyección de dependencias (Dagger Hilt)
+ *
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
+    /**
+     * Inyecta la base de datos de la aplicación
+     *
+     * @param app Contexto de aplicación
+     */
     @Provides
     @Singleton
     fun provideNoteDatabase(app: Application): NoteDatabase{
@@ -30,12 +39,24 @@ object AppModule {
         ).build()
     }
 
+    /**
+     * Inyecta el repositorio de la base de datos
+     *
+     * @param db Base de datos
+     * @return Devuelve el repositorio
+     */
     @Provides
     @Singleton
     fun provideNoteRepository(db: NoteDatabase): NoteRepository{
         return NoteRepositoryImpl(db.noteDao)
     }
 
+    /**
+     * Inyecta los usos de caso de nuestra aplicación
+     *
+     * @param repository Repositorio para proveer de datos a los usos de caso
+     * @return Devuelve los usos de caso
+     */
     @Provides
     @Singleton
     fun provideNoteUseCases(repository: NoteRepository): NoteUseCases{

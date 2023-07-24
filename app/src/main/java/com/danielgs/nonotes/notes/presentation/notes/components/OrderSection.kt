@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Sort
-import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -29,6 +28,14 @@ import androidx.compose.ui.unit.dp
 import com.danielgs.nonotes.notes.domain.util.NoteOrder
 import com.danielgs.nonotes.notes.domain.util.OrderType
 
+/**
+ * Función [Composable] que se encarga de renderizar opciones para los filtros de notas
+ *
+ * @param modifier Modificador de la función composable
+ * @param noteOrder Orden actual
+ * @param onOrderChange Función ejecutada al cambiar el orden
+ *
+ */
 @Composable
 fun OrderSection(
     modifier: Modifier = Modifier,

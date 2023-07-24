@@ -4,10 +4,21 @@ import com.danielgs.nonotes.notes.domain.model.InvalidNoteException
 import com.danielgs.nonotes.notes.domain.model.Note
 import com.danielgs.nonotes.notes.domain.repository.NoteRepository
 
+/**
+ * Uso de caso para añadir una nota
+ *
+ * @property repository Repositorio para el manejo de datos
+ */
 class AddNote(
     private val repository: NoteRepository
 ) {
 
+    /**
+     * Uso de caso para añadir una nota. Se comprueba si no está en blanco ni el titulo ni el contenido.
+     * Si lo está, se lanza una [InvalidNoteException] y si no, se añade a la base de datos.
+     *
+     * @property note Nota para insertar
+     */
     @Throws(InvalidNoteException::class)
     suspend operator fun invoke(note : Note){
 

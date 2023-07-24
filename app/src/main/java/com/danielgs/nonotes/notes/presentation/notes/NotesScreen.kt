@@ -63,6 +63,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 
+/**
+ * Función [Composable] que se encarga de renderizar la pantalla de las Notas
+ *
+ * @param navController Controlador de navegación
+ * @param viewModel Clase viewModel de la pantalla
+ *
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun NotesScreen(
